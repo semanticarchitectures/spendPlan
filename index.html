@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpendPlan - Financial Planning & Budgeting</title>
+  <meta name="description" content="Personal financial planning, budgeting, actual vs expected tracking, statement importer, net worth analysis, and interactive what-if scenario simulations.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <span class="brand-name">SpendPlan</span>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="dashboard">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          Overview Dashboard
+        </button>
+        <button class="nav-item" data-tab="budget">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+          Budget (Expected vs Actual)
+        </button>
+        <button class="nav-item" data-tab="networth">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M3 6l9-4 9 4M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11"/></svg>
+          Assets & Liabilities
+        </button>
+        <button class="nav-item" data-tab="importer">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import Statements
+        </button>
+        <button class="nav-item" data-tab="scenarios">
+          <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          "What-If" Excursions
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="timeframe-selector-card">
+          <label for="global-timeframe">Planning Horizon</label>
+          <select id="global-timeframe">
+            <option value="monthly">Monthly Horizon</option>
+            <option value="annual" selected>Annual Horizon (1 Year)</option>
+            <option value="5years">5-Year Forecast</option>
+            <option value="10years">10-Year Forecast</option>
+          </select>
+        </div>
+        <div class="data-actions">
+          <button id="btn-export-data" class="btn btn-secondary btn-sm" title="Export JSON backup">Export JSON</button>
+          <button id="btn-import-data" class="btn btn-secondary btn-sm" title="Import JSON backup">Import JSON</button>
+          <input type="file" id="json-file-input" accept=".json" style="display:none;">
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Header Bar -->
+      <header class="top-header">
+        <div class="header-titles">
+          <h1 id="page-title">Overview Dashboard</h1>
+          <p id="page-subtitle" class="text-muted">Real-time financial summary, cash flow, and net worth overview.</p>
+        </div>
+        <div class="header-quick-stats">
+          <div class="quick-stat">
+            <span class="stat-label">Net Worth</span>
+            <span id="quick-net-worth" class="stat-val font-accent">$0</span>
+          </div>
+          <div class="quick-stat">
+            <span class="stat-label">Net Cash Flow (Actual)</span>
+            <span id="quick-cash-flow" class="stat-val">$0</span>
+          </div>
+          <button id="btn-seed-sample" class="btn btn-outline btn-sm">Load Demo Data</button>
+        </div>
+      </header>
+
+      <!-- TAB 1: DASHBOARD -->
+      <section id="tab-dashboard" class="tab-pane active">
+        <!-- Summary Cards Row -->
+        <div class="metrics-grid">
+          <div class="metric-card glass">
+            <div class="metric-header">
+              <span>Expected Income</span>
+              <div class="metric-icon green">↓</div>
+            </div>
+            <div class="metric-value" id="dash-expected-income">$0</div>
+            <div class="metric-footer text-muted" id="dash-actual-income-sub">Actual: $0</div>
+          </div>
+          <div class="metric-card glass">
+            <div class="metric-header">
+              <span>Expected Spending</span>
+              <div class="metric-icon red">↑</div>
+            </div>
+            <div class="metric-value" id="dash-expected-spending">$0</div>
+            <div class="metric-footer text-muted" id="dash-actual-spending-sub">Actual: $0</div>
+          </div>
+          <div class="metric-card glass">
+            <div class="metric-header">
+              <span>Total Assets</span>
+              <div class="metric-icon blue">🏦</div>
+            </div>
+            <div class="metric-value" id="dash-total-assets">$0</div>
+            <div class="metric-footer text-muted" id="dash-assets-sub">Liquid & Investments</div>
+          </div>
+          <div class="metric-card glass">
+            <div class="metric-header">
+              <span>Total Liabilities</span>
+              <div class="metric-icon orange">💳</div>
+            </div>
+            <div class="metric-value" id="dash-total-liabilities">$0</div>
+            <div class="metric-footer text-muted" id="dash-liabilities-sub">Loans & Credit Balances</div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+          <div class="chart-card glass">
+            <div class="chart-header">
+              <h3>Income & Spending (Expected vs Actual)</h3>
+              <span class="badge" id="budget-status-badge">On Track</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chart-budget-comparison"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card glass">
+            <div class="chart-header">
+              <h3>Net Worth Forecast</h3>
+              <span class="badge badge-accent" title="Per-asset yields, amortizing debt, 3% inflation — same engine as the What-If tab">5-Yr Baseline</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chart-networth-forecast"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card glass">
+            <div class="chart-header">
+              <h3>Spending Breakdown by Category</h3>
+              <span class="badge badge-danger">Expenses</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chart-spending-donut"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card glass">
+            <div class="chart-header">
+              <h3>Asset Allocation</h3>
+              <span class="badge badge-success">Assets</span>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chart-asset-donut"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions & Action Cards -->
+        <div class="two-col-grid">
+          <div class="card glass">
+            <div class="card-header">
+              <h3>Recent Actual Transactions</h3>
+              <button class="btn btn-text btn-sm" onclick="switchTab('importer')">Import More</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table" id="table-recent-txs">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Account / Source</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-recent-txs">
+                  <tr><td colspan="5" class="text-center text-muted">No transactions imported yet. Click "Import Statements" or "Load Demo Data".</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card glass">
+            <div class="card-header">
+              <h3>Budget Health & Excursion Snippet</h3>
+            </div>
+            <div class="health-indicators">
+              <div class="health-item">
+                <div class="health-info">
+                  <span class="health-title">Savings Rate</span>
+                  <span class="health-val" id="val-savings-rate">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="bar-savings-rate" style="width: 0%;"></div></div>
+              </div>
+              <div class="health-item">
+                <div class="health-info">
+                  <span class="health-title">Debt to Asset Ratio</span>
+                  <span class="health-val" id="val-debt-ratio">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill danger" id="bar-debt-ratio" style="width: 0%;"></div></div>
+              </div>
+              <div class="health-item">
+                <div class="health-info">
+                  <span class="health-title">Emergency Fund Coverage</span>
+                  <span class="health-val" id="val-emergency-coverage">0 Months</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill accent" id="bar-emergency-coverage" style="width: 0%;"></div></div>
+              </div>
+            </div>
+            <div class="quick-excursion-cta">
+              <p>Want to simulate a market drop, salary boost, or new mortgage?</p>
+              <button class="btn btn-primary btn-block" onclick="switchTab('scenarios')">Launch "What-If" Excursion Sandbox &rarr;</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: BUDGET (EXPECTED VS ACTUAL) -->
+      <section id="tab-budget" class="tab-pane">
+        <div class="section-toolbar">
+          <div class="search-filter-group">
+            <input type="text" id="budget-search" placeholder="Search budget categories..." class="form-input">
+            <select id="budget-type-filter" class="form-select">
+              <option value="all">All Types</option>
+              <option value="income">Income Only</option>
+              <option value="expense">Expenses Only</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('modal-add-budget')">+ Add Budget Item</button>
+        </div>
+
+        <div class="card glass actuals-period-bar">
+          <div class="actuals-period-controls">
+            <label for="actuals-months">Actuals window</label>
+            <select id="actuals-months" class="form-select">
+              <option value="all">All imported months</option>
+              <option value="1">Last month</option>
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+            </select>
+          </div>
+          <p id="actuals-period-info" class="text-muted actuals-period-info">No transactions imported yet — actuals are the values you entered.</p>
+        </div>
+
+        <div class="card glass">
+          <div class="table-responsive">
+            <table class="table" id="table-budget">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Expected (Planned)</th>
+                  <th>Actual (Imported / Logged)</th>
+                  <th>Variance</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-budget">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: ASSETS & LIABILITIES (NET WORTH) -->
+      <section id="tab-networth" class="tab-pane">
+        <div class="section-toolbar">
+          <h2 class="section-title">Assets & Liabilities Portfolio</h2>
+          <div class="btn-group">
+            <button class="btn btn-primary" onclick="openModal('modal-add-asset')">+ Add Asset</button>
+            <button class="btn btn-secondary" onclick="openModal('modal-add-liability')">+ Add Liability</button>
+          </div>
+        </div>
+
+        <div class="two-col-grid stack-grid">
+          <!-- Assets Column -->
+          <div class="card glass">
+            <div class="card-header">
+              <h3 class="text-success">Assets (What You Own)</h3>
+              <span id="total-assets-badge" class="badge badge-success">$0</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Asset Name</th>
+                    <th>Category</th>
+                    <th>Value / Balance</th>
+                    <th>Expected Yield / Return</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-assets">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Liabilities Column -->
+          <div class="card glass">
+            <div class="card-header">
+              <h3 class="text-danger">Liabilities (What You Owe)</h3>
+              <span id="total-liabilities-badge" class="badge badge-danger">$0</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Liability Name</th>
+                    <th>Category</th>
+                    <th>Balance Owed</th>
+                    <th>Interest Rate</th>
+                    <th>Monthly Payment</th>
+                    <th>Paid Off</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-liabilities">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: IMPORT STATEMENTS -->
+      <section id="tab-importer" class="tab-pane">
+        <div class="importer-header card glass">
+          <h2>Import Statement Reports (Bank, Credit Card & Investment)</h2>
+          <p class="text-muted">Drag and drop or select statement export files (CSV, OFX, QFX) from your bank, credit card company, or brokerage. Actual numbers will be extracted and auto-matched to budget categories & asset balances.</p>
+          
+          <div class="dropzone" id="file-dropzone">
+            <div class="dropzone-icon">📁</div>
+            <h3>Drag & Drop CSV / OFX / QFX Statement File</h3>
+            <p class="text-muted">Or click to select a file from your computer</p>
+            <input type="file" id="statement-file-input" accept=".csv, .ofx, .qfx, .txt" style="display: none;">
+            <button class="btn btn-outline" onclick="document.getElementById('statement-file-input').click()">Browse Files</button>
+          </div>
+        </div>
+
+        <!-- Statement Parsing Mapping & Preview (Hidden by default until file uploaded) -->
+        <div id="importer-preview-card" class="card glass" style="display: none;">
+          <div class="card-header">
+            <h3>Statement Preview & Column Mapping</h3>
+            <span class="badge badge-accent" id="import-filename-badge">filename.csv</span>
+          </div>
+          
+          <div class="mapping-controls grid-3-col">
+            <div class="form-group">
+              <label for="map-account-type">Account Type</label>
+              <select id="map-account-type" class="form-select">
+                <option value="checking">Checking / Savings</option>
+                <option value="credit">Credit Card</option>
+                <option value="investment">Investment / Brokerage</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="map-account-label">Account Label</label>
+              <input type="text" id="map-account-label" class="form-input" placeholder="e.g. Chase Checking" maxlength="40">
+            </div>
+            <div class="form-group">
+              <label for="map-date-col">Date Column</label>
+              <select id="map-date-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-desc-col">Description Column</label>
+              <select id="map-desc-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-amount-col">Amount Column <span class="text-muted">(single signed column)</span></label>
+              <select id="map-amount-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-debit-col">Debit / Withdrawal Column <span class="text-muted">(if split)</span></label>
+              <select id="map-debit-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-credit-col">Credit / Deposit Column <span class="text-muted">(if split)</span></label>
+              <select id="map-credit-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-category-col">Category Column <span class="text-muted">(optional)</span></label>
+              <select id="map-category-col" class="form-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="map-fitid-col">Transaction ID Column <span class="text-muted">(optional, for dedupe)</span></label>
+              <select id="map-fitid-col" class="form-select"></select>
+            </div>
+            <div class="form-group mapping-toggles">
+              <label class="toggle-label" title="Amex, Capital One and some others export charges as positive numbers. SpendPlan stores money out as negative.">
+                <input type="checkbox" id="map-invert">
+                <span>Positive numbers are charges (invert signs)</span>
+              </label>
+              <label class="toggle-label" title="Read ambiguous dates like 03/04/2026 as 3 April rather than 4 March.">
+                <input type="checkbox" id="map-dayfirst">
+                <span>Dates are day/month/year</span>
+              </label>
+            </div>
+            <div class="form-group align-end">
+              <button class="btn btn-success btn-block" id="btn-process-import">Import Transactions</button>
+            </div>
+          </div>
+
+          <p id="import-parse-summary" class="text-muted import-parse-summary"></p>
+
+          <h4>Preview (first 10 rows, with how each will be read)</h4>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr id="preview-table-head"></tr>
+              </thead>
+              <tbody id="preview-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: WHAT-IF SCENARIOS -->
+      <section id="tab-scenarios" class="tab-pane">
+        <div class="scenario-layout">
+          <!-- Controls Panel -->
+          <div class="scenario-controls card glass">
+            <h3>"What-If" Excursion Controls</h3>
+            <p class="text-muted">Simulate financial changes without altering your actual baseline budget or assets.</p>
+
+            <div class="saved-scenarios-manager margin-bottom">
+              <label for="saved-scenarios-select" class="form-label font-weight-bold">Saved Custom Scenarios</label>
+              <div class="grid-2-col margin-top-xs">
+                <select id="saved-scenarios-select" class="form-select">
+                  <option value="">-- Active Sandbox (Unsaved) --</option>
+                </select>
+                <button class="btn btn-primary" id="btn-save-scenario-modal">💾 Save Scenario</button>
+              </div>
+              <div class="saved-scenario-actions margin-top-xs" id="saved-scenario-actions" style="display: none;">
+                <button class="btn btn-sm btn-secondary" id="btn-load-scenario">Load Active</button>
+                <button class="btn btn-sm btn-secondary" id="btn-rename-scenario">Rename</button>
+                <button class="btn btn-sm btn-outline text-danger" id="btn-delete-scenario">Delete</button>
+              </div>
+            </div>
+
+            <div class="excursion-preset-bar">
+              <label>Preset Scenarios:</label>
+              <div class="preset-buttons">
+                <button class="btn btn-sm btn-outline" onclick="applyScenarioPreset('jobChange')">💼 Salary Bump (+15%)</button>
+                <button class="btn btn-sm btn-outline" onclick="applyScenarioPreset('homePurchase')">🏡 Buy New Home</button>
+                <button class="btn btn-sm btn-outline" onclick="applyScenarioPreset('marketCrash')">📉 Market Correction (-20%)</button>
+                <button class="btn btn-sm btn-outline" onclick="applyScenarioPreset('earlyRetirement')">🌅 Early Retirement</button>
+                <button class="btn btn-sm btn-outline" onclick="resetScenario()">🔄 Reset Baseline</button>
+              </div>
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Income Adjustment</span>
+                <span class="slider-value" id="val-scen-income">0%</span>
+              </div>
+              <input type="range" id="slider-scen-income" min="-50" max="100" value="0" step="5">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Spending / Expense Change</span>
+                <span class="slider-value" id="val-scen-spending">0%</span>
+              </div>
+              <input type="range" id="slider-scen-spending" min="-50" max="100" value="0" step="5">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Investment Return (Annual) <button type="button" class="btn btn-text btn-xs" id="btn-scen-return-auto" title="Go back to each asset's own expected return" style="display:none;">use per-asset yields</button></span>
+                <span class="slider-value" id="val-scen-return">7.0%</span>
+              </div>
+              <input type="range" id="slider-scen-return" min="-20" max="25" value="7" step="0.5">
+              <small class="text-muted">Overrides the expected return of Investment &amp; Retirement assets only. Cash and real estate keep their own yields.</small>
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Inflation Rate</span>
+                <span class="slider-value" id="val-scen-inflation">3.0%</span>
+              </div>
+              <input type="range" id="slider-scen-inflation" min="0" max="12" value="3" step="0.5">
+            </div>
+
+            <div class="form-group margin-top">
+              <label for="scen-one-off-desc">Add One-Time Excursion Event (e.g. Major Expense / Windfall)</label>
+              <div class="grid-2-col">
+                <input type="text" id="scen-one-off-desc" placeholder="e.g. New Car Purchase" class="form-input">
+                <input type="number" id="scen-one-off-amount" placeholder="Amount (- for expense)" class="form-input">
+              </div>
+              <button class="btn btn-secondary btn-block margin-top-sm" id="btn-add-one-off">+ Add One-Time Event</button>
+            </div>
+            <ul class="one-off-list" id="one-off-list"></ul>
+          </div>
+
+          <!-- Simulation Visualizer -->
+          <div class="scenario-results card glass">
+            <div class="card-header">
+              <h3>Net Worth Trajectory: Baseline vs "What-If"</h3>
+              <div class="scenario-chart-controls">
+                <label class="toggle-label">
+                  <input type="checkbox" id="toggle-compare-all">
+                  <span>Compare All Saved</span>
+                </label>
+                <div class="trajectory-delta badge" id="trajectory-delta-badge">+$0 Net Difference</div>
+              </div>
+            </div>
+
+            <!-- Active Scenario Notes Panel -->
+            <div id="scenario-notes-panel" class="scenario-notes-panel" style="display:none;">
+              <div class="notes-label">📌 Scenario Notes</div>
+              <div id="scenario-notes-text" class="notes-text"></div>
+            </div>
+            
+            <div class="chart-wrapper chart-large">
+              <canvas id="chart-scenario-comparison"></canvas>
+            </div>
+
+            <div class="scenario-summary-cards">
+              <div class="sub-stat">
+                <span class="sub-stat-label">Baseline 10-Yr Net Worth</span>
+                <span class="sub-stat-val" id="scen-baseline-nw">$0</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Active Scenario 10-Yr Net Worth</span>
+                <span class="sub-stat-val font-accent" id="scen-excursion-nw">$0</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Year-1 Cash Flow (after debt payments)</span>
+                <span class="sub-stat-val text-success" id="scen-annual-cashflow">$0</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Savings Rate (Scenario)</span>
+                <span class="sub-stat-val" id="scen-savings-rate">0%</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Growth of Current Investments (10 Yrs)</span>
+                <span class="sub-stat-val text-success" id="scen-invest-growth">$0</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Net Worth Delta vs Baseline</span>
+                <span class="sub-stat-val" id="scen-nw-delta">$0</span>
+              </div>
+              <div class="sub-stat">
+                <span class="sub-stat-label">Interest Paid (10 Yrs)</span>
+                <span class="sub-stat-val text-danger" id="scen-interest-paid">$0</span>
+              </div>
+            </div>
+
+            <p id="scen-cash-warning" class="text-danger scen-warning" style="display:none;">⚠ This scenario runs out of cash and investments at some point in the 10 years — the trajectory below zero assumes borrowing.</p>
+
+            <div class="payoff-timeline">
+              <div class="notes-label">Debt payoff timeline</div>
+              <ul id="scen-payoff-list" class="payoff-list"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <!-- Modal: Add/Edit Budget Item -->
+  <div class="modal-backdrop" id="modal-add-budget">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-budget-title">Add Budget Item</h3>
+        <button class="btn-close" onclick="closeModal('modal-add-budget')">&times;</button>
+      </div>
+      <form id="form-budget">
+        <input type="hidden" id="budget-item-id">
+        <div class="form-group">
+          <label for="budget-item-name">Category / Item Name</label>
+          <input type="text" id="budget-item-name" class="form-input" required placeholder="e.g., Salary, Rent, Grocery, Utilities">
+        </div>
+        <div class="form-group">
+          <label for="budget-item-type">Type</label>
+          <select id="budget-item-type" class="form-select">
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="budget-item-frequency">Frequency</label>
+          <select id="budget-item-frequency" class="form-select">
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual (entered per year)</option>
+            <option value="weekly">Weekly (entered per week)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="budget-item-expected">Expected Amount ($) <span class="text-muted">per selected frequency</span></label>
+          <input type="number" id="budget-item-expected" class="form-input" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label for="budget-item-actual">Actual Amount ($) <span class="text-muted">(optional)</span></label>
+          <input type="number" id="budget-item-actual" class="form-input" step="0.01" placeholder="0.00">
+          <small id="budget-actual-hint" class="text-muted">Leave blank to use the expected amount.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-budget')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Budget Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Asset -->
+  <div class="modal-backdrop" id="modal-add-asset">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Asset</h3>
+        <button class="btn-close" onclick="closeModal('modal-add-asset')">&times;</button>
+      </div>
+      <form id="form-asset">
+        <input type="hidden" id="asset-item-id">
+        <div class="form-group">
+          <label for="asset-name">Asset Name</label>
+          <input type="text" id="asset-name" class="form-input" required placeholder="e.g. 401(k), Checking Account, Primary Residence">
+        </div>
+        <div class="form-group">
+          <label for="asset-category">Category</label>
+          <select id="asset-category" class="form-select">
+            <option value="Cash / Liquid">Cash / Savings / Checking</option>
+            <option value="Investment / Stocks">Investment / Stocks / ETFs</option>
+            <option value="Retirement">Retirement (401k, IRA)</option>
+            <option value="Real Estate">Real Estate / Property</option>
+            <option value="Vehicle / Other">Vehicle / Crypto / Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="asset-value">Current Value ($)</label>
+          <input type="number" id="asset-value" class="form-input" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label for="asset-yield">Expected Annual Return Rate (%)</label>
+          <input type="number" id="asset-yield" class="form-input" step="0.1" value="7.0" placeholder="7.0">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-asset')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Asset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Liability -->
+  <div class="modal-backdrop" id="modal-add-liability">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Liability</h3>
+        <button class="btn-close" onclick="closeModal('modal-add-liability')">&times;</button>
+      </div>
+      <form id="form-liability">
+        <input type="hidden" id="liability-item-id">
+        <div class="form-group">
+          <label for="liability-name">Liability Name</label>
+          <input type="text" id="liability-name" class="form-input" required placeholder="e.g. Mortgage, Student Loan, Credit Card">
+        </div>
+        <div class="form-group">
+          <label for="liability-category">Category</label>
+          <select id="liability-category" class="form-select">
+            <option value="Mortgage">Mortgage</option>
+            <option value="Student Loan">Student Loan</option>
+            <option value="Auto Loan">Auto Loan</option>
+            <option value="Credit Card">Credit Card Balance</option>
+            <option value="Personal / Other">Personal / Other Debt</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="liability-balance">Current Balance Owed ($)</label>
+          <input type="number" id="liability-balance" class="form-input" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label for="liability-rate">Interest Rate APR (%)</label>
+          <input type="number" id="liability-rate" class="form-input" step="0.1" value="5.0" placeholder="5.0">
+        </div>
+        <div class="form-group">
+          <label for="liability-payment">Monthly Payment ($) <span class="text-muted">(principal + interest)</span></label>
+          <input type="number" id="liability-payment" class="form-input" step="0.01" min="0" placeholder="0.00">
+          <small id="liability-payment-hint" class="text-muted">Leave blank to estimate from the balance, rate, and a typical term.</small>
+        </div>
+        <div class="form-group">
+          <label class="toggle-label" title="Tick this if a budget expense line (e.g. Housing) already includes this payment. Untick it and the projection will subtract the payment on top of your budget.">
+            <input type="checkbox" id="liability-in-budget" checked>
+            <span>This payment is already inside a budget expense line</span>
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-liability')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Liability</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Save Scenario -->
+  <div class="modal-backdrop" id="modal-save-scenario">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Save "What-If" Scenario</h3>
+        <button class="btn-close" onclick="closeModal('modal-save-scenario')">&times;</button>
+      </div>
+      <form id="form-save-scenario">
+        <div class="form-group">
+          <label for="scenario-name-input">Scenario Title / Name</label>
+          <input type="text" id="scenario-name-input" class="form-input" required placeholder="e.g. Sabbatical Year, Career Change, Tech Investment Surge">
+        </div>
+        <div class="form-group">
+          <label for="scenario-notes-input">Notes / Description (Optional)</label>
+          <input type="text" id="scenario-notes-input" class="form-input" placeholder="e.g. Assumes 20% income bump and 5% inflation">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-save-scenario')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Scenario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="parse.js"></script>
+  <script src="ledger.js"></script>
+  <script src="projection.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
