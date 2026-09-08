@@ -52,6 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Collision-resistant id for new records (Date.now() alone can collide within the same ms).
+function uid(prefix) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // Escape a string for safe insertion into innerHTML.
 function esc(v) {
   return String(v === null || v === undefined ? '' : v)
@@ -723,7 +728,7 @@ function initScenarioControls() {
     if (!name) return;
 
     const newScenario = {
-      id: 'scen-' + Date.now(),
+      id: uid('scen'),
       name: name,
       notes: notes,
       config: JSON.parse(JSON.stringify(state.scenario))
@@ -1307,7 +1312,7 @@ function initModals() {
         state.budget[idx] = next;
       }
     } else {
-      state.budget.push({ id: 'b-' + Date.now(), name, type, expected, actual, frequency });
+      state.budget.push({ id: uid('b'), name, type, expected, actual, frequency });
     }
 
     closeModal('modal-add-budget');
@@ -1322,13 +1327,14 @@ function initModals() {
     const name = document.getElementById('asset-name').value;
     const category = document.getElementById('asset-category').value;
     const value = parseFloat(document.getElementById('asset-value').value);
-    const yieldVal = parseFloat(document.getElementById('asset-yield').value);
+    const yieldVal = parseFloat(document.getElementById('asset-yield').value) || 0;
+    if (isNaN(value)) return;
 
     if (id) {
       const idx = state.assets.findIndex(a => a.id === id);
       if (idx !== -1) state.assets[idx] = { id, name, category, value, yield: yieldVal };
     } else {
-      state.assets.push({ id: 'a-' + Date.now(), name, category, value, yield: yieldVal });
+      state.assets.push({ id: uid('a'), name, category, value, yield: yieldVal });
     }
 
     closeModal('modal-add-asset');
@@ -1351,13 +1357,14 @@ function initModals() {
     const paymentRaw = parseFloat(document.getElementById('liability-payment').value);
     const payment = paymentRaw > 0 ? paymentRaw : null;
     const inBudget = document.getElementById('liability-in-budget').checked;
+    if (isNaN(balance)) return;
     const rec = { name, category, balance, rate, payment, inBudget };
 
     if (id) {
       const idx = state.liabilities.findIndex(l => l.id === id);
       if (idx !== -1) state.liabilities[idx] = Object.assign({ id }, rec);
     } else {
-      state.liabilities.push(Object.assign({ id: 'l-' + Date.now() }, rec));
+      state.liabilities.push(Object.assign({ id: uid('l') }, rec));
     }
 
     closeModal('modal-add-liability');
@@ -1502,7 +1509,7 @@ function applySnapshot(parsed) {
   const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : (parseFloat(v) || d || 0);
 
   state.budget = arr(parsed.budget).filter(b => b && b.name).map(b => ({
-    id: String(b.id || ('b-' + Math.random().toString(36).slice(2))),
+    id: String(b.id || uid('b')),
     name: String(b.name),
     type: b.type === 'income' ? 'income' : 'expense',
     expected: num(b.expected),
@@ -1513,11 +1520,11 @@ function applySnapshot(parsed) {
     ...(Array.isArray(b.categories) ? { categories: b.categories } : {})
   }));
   state.assets = arr(parsed.assets).filter(a => a && a.name).map(a => ({
-    id: String(a.id || ('a-' + Math.random().toString(36).slice(2))), name: String(a.name),
+    id: String(a.id || uid('a')), name: String(a.name),
     category: String(a.category || 'Vehicle / Other'), value: num(a.value), yield: num(a.yield, 0)
   }));
   state.liabilities = arr(parsed.liabilities).filter(l => l && l.name).map(l => ({
-    id: String(l.id || ('l-' + Math.random().toString(36).slice(2))), name: String(l.name),
+    id: String(l.id || uid('l')), name: String(l.name),
     category: String(l.category || 'Personal / Other'), balance: num(l.balance), rate: num(l.rate, 0),
     payment: num(l.payment, 0) > 0 ? num(l.payment) : null,
     inBudget: l.inBudget !== false
