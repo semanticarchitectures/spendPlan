@@ -28,6 +28,11 @@
     return (h >>> 0).toString(16);
   }
 
+  // Collision-resistant id for new records (Date.now() alone can collide within the same ms).
+  function uid(prefix) {
+    return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   function baseKey(tx) {
     const acct = String(tx.account || '').toLowerCase();
     if (tx.fitid) return `fit:${acct}:${tx.fitid}`;
@@ -297,9 +302,89 @@
     return (transactions || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id || '').localeCompare(a.id || ''));
   }
 
+  // ---------------------------------------------------------------------------
+  // Normalizing persisted/imported records (localStorage snapshot, JSON backup
+  // restore).  Pure and defensive: bad/missing fields fall back to sane defaults
+  // rather than throwing, since this data may come from a hand-edited file.
+  // Returns null for a record with no name (unusable — the caller should drop it).
+  // ---------------------------------------------------------------------------
+  function coerceNumber(v, d) {
+    return (typeof v === 'number' && isFinite(v)) ? v : (parseFloat(v) || d || 0);
+  }
+
+  function normalizeBudgetItem(b) {
+    if (!b || !b.name) return null;
+    return {
+      id: String(b.id || uid('b')),
+      name: String(b.name),
+      type: b.type === 'income' ? 'income' : 'expense',
+      expected: coerceNumber(b.expected),
+      actual: coerceNumber(b.actual),
+      frequency: ['monthly', 'annual', 'weekly'].includes(b.frequency) ? b.frequency : 'monthly',
+      ...(b.actualSource ? { actualSource: b.actualSource } : {}),
+      ...(b.actualTxCount ? { actualTxCount: b.actualTxCount } : {}),
+      ...(Array.isArray(b.categories) ? { categories: b.categories } : {})
+    };
+  }
+
+  function normalizeAsset(a) {
+    if (!a || !a.name) return null;
+    return {
+      id: String(a.id || uid('a')),
+      name: String(a.name),
+      category: String(a.category || 'Vehicle / Other'),
+      value: coerceNumber(a.value),
+      yield: coerceNumber(a.yield, 0)
+    };
+  }
+
+  function normalizeLiability(l) {
+    if (!l || !l.name) return null;
+    return {
+      id: String(l.id || uid('l')),
+      name: String(l.name),
+      category: String(l.category || 'Personal / Other'),
+      balance: coerceNumber(l.balance),
+      rate: coerceNumber(l.rate, 0),
+      payment: coerceNumber(l.payment, 0) > 0 ? coerceNumber(l.payment) : null,
+      inBudget: l.inBudget !== false
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Merge a budget-item edit form's input into the previous record (or create a
+  // new one when `prev` is null).  Caller normalizes `edit.expected`/`actualMonthly`
+  // to monthly figures first (frequency conversion is a display concern, not a
+  // ledger one).  `edit.actualChanged` should be true only when the user's typed
+  // actual differs from what the previous record would display — that's what
+  // distinguishes "I'm overriding this" from "I re-saved the form untouched".
+  // ---------------------------------------------------------------------------
+  function applyBudgetEdit(prev, edit) {
+    if (!prev) {
+      return {
+        id: uid('b'),
+        name: edit.name,
+        type: edit.type,
+        expected: edit.expected,
+        actual: edit.actualProvided ? edit.actualMonthly : edit.expected,
+        frequency: edit.frequency
+      };
+    }
+    const next = Object.assign({}, prev, { name: edit.name, type: edit.type, expected: edit.expected, frequency: edit.frequency });
+    if (edit.actualProvided && edit.actualChanged) {
+      next.actual = edit.actualMonthly;
+      next.actualSource = 'manual';
+      delete next.actualTxCount;
+    } else if (!edit.actualProvided) {
+      next.actual = prev.actualSource === 'transactions' ? prev.actual : edit.expected;
+    }
+    return next;
+  }
+
   return {
     TRANSFER,
     CATEGORY_RULES,
+    uid,
     baseKey,
     mergeTransactions,
     categorize,
@@ -311,6 +396,10 @@
     inPeriod,
     computeActuals,
     applyActuals,
-    sortByDateDesc
+    sortByDateDesc,
+    normalizeBudgetItem,
+    normalizeAsset,
+    normalizeLiability,
+    applyBudgetEdit
   };
 });

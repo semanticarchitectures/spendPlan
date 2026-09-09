@@ -179,3 +179,90 @@ test('periodFromTransactions: incomplete current month is excluded unless it is 
   assert.equal(a.months, 1);
   assert.equal(a.byItem.b1.monthly, 4000);
 });
+
+// ---------- uid ----------
+test('uid: prefixed and collision-free across many rapid calls', () => {
+  assert.match(L.uid('b'), /^b-[a-z0-9]+$/);
+  const ids = new Set();
+  for (let i = 0; i < 1000; i++) ids.add(L.uid('x'));
+  assert.equal(ids.size, 1000);
+});
+
+// ---------- normalize* (snapshot restore / import) ----------
+test('normalizeBudgetItem: drops nameless records, fills defaults, preserves known optional fields', () => {
+  assert.equal(L.normalizeBudgetItem(null), null);
+  assert.equal(L.normalizeBudgetItem({}), null);
+  assert.equal(L.normalizeBudgetItem({ name: '' }), null);
+
+  const fresh = L.normalizeBudgetItem({ name: 'Rent', type: 'expense', expected: '1200' });
+  assert.ok(fresh.id);
+  assert.equal(fresh.name, 'Rent');
+  assert.equal(fresh.expected, 1200);
+  assert.equal(fresh.actual, 0);
+  assert.equal(fresh.frequency, 'monthly'); // invalid/missing frequency falls back
+  assert.equal(fresh.actualSource, undefined);
+
+  const full = L.normalizeBudgetItem({
+    id: 'b-keep', name: 'Groceries', type: 'bogus', expected: 500, actual: 480,
+    frequency: 'annual', actualSource: 'transactions', actualTxCount: 12, categories: ['Groceries']
+  });
+  assert.equal(full.id, 'b-keep');
+  assert.equal(full.type, 'expense'); // anything but 'income' normalizes to 'expense'
+  assert.equal(full.frequency, 'annual');
+  assert.equal(full.actualSource, 'transactions');
+  assert.equal(full.actualTxCount, 12);
+  assert.deepEqual(full.categories, ['Groceries']);
+});
+
+test('normalizeAsset / normalizeLiability: defaults and payment estimation flag', () => {
+  assert.equal(L.normalizeAsset({ name: '' }), null);
+  const a = L.normalizeAsset({ name: 'Brokerage', value: '10000.5' });
+  assert.equal(a.category, 'Vehicle / Other');
+  assert.equal(a.value, 10000.5);
+  assert.equal(a.yield, 0);
+
+  assert.equal(L.normalizeLiability({}), null);
+  const l1 = L.normalizeLiability({ name: 'Car Loan', balance: 5000, payment: 0 });
+  assert.equal(l1.payment, null); // 0/blank payment means "estimate it"
+  assert.equal(l1.inBudget, true);
+  const l2 = L.normalizeLiability({ name: 'Mortgage', balance: 300000, payment: 1500, inBudget: false });
+  assert.equal(l2.payment, 1500);
+  assert.equal(l2.inBudget, false);
+});
+
+// ---------- applyBudgetEdit (budget form submit) ----------
+test('applyBudgetEdit: new item uses the typed actual, or falls back to expected', () => {
+  const withActual = L.applyBudgetEdit(null, { name: 'Dining', type: 'expense', frequency: 'monthly', expected: 300, actualProvided: true, actualMonthly: 250 });
+  assert.equal(withActual.actual, 250);
+  const blank = L.applyBudgetEdit(null, { name: 'Dining', type: 'expense', frequency: 'monthly', expected: 300, actualProvided: false, actualMonthly: null });
+  assert.equal(blank.actual, 300);
+});
+
+test('applyBudgetEdit: typing a new actual creates a manual override and clears actualTxCount', () => {
+  const prev = { id: 'b1', name: 'Groceries', type: 'expense', expected: 500, actual: 480, frequency: 'monthly', actualSource: 'transactions', actualTxCount: 8 };
+  const next = L.applyBudgetEdit(prev, { name: 'Groceries', type: 'expense', frequency: 'monthly', expected: 500, actualProvided: true, actualMonthly: 600, actualChanged: true });
+  assert.equal(next.actual, 600);
+  assert.equal(next.actualSource, 'manual');
+  assert.equal(next.actualTxCount, undefined);
+});
+
+test('applyBudgetEdit: re-saving with the same displayed actual keeps the derived value', () => {
+  const prev = { id: 'b1', name: 'Groceries', type: 'expense', expected: 500, actual: 480, frequency: 'monthly', actualSource: 'transactions', actualTxCount: 8 };
+  const next = L.applyBudgetEdit(prev, { name: 'Groceries Updated', type: 'expense', frequency: 'monthly', expected: 550, actualProvided: true, actualMonthly: 480, actualChanged: false });
+  assert.equal(next.name, 'Groceries Updated');
+  assert.equal(next.expected, 550);
+  assert.equal(next.actual, 480); // untouched — still ledger-derived
+  assert.equal(next.actualSource, 'transactions');
+  assert.equal(next.actualTxCount, 8);
+});
+
+test('applyBudgetEdit: clearing the actual field reverts a manual item to expected, but keeps derived actuals', () => {
+  const manual = { id: 'b1', name: 'Fun money', type: 'expense', expected: 200, actual: 150, frequency: 'monthly', actualSource: 'manual' };
+  const revertedManual = L.applyBudgetEdit(manual, { name: 'Fun money', type: 'expense', frequency: 'monthly', expected: 200, actualProvided: false, actualMonthly: null });
+  assert.equal(revertedManual.actual, 200); // falls back to expected
+
+  const derived = { id: 'b2', name: 'Groceries', type: 'expense', expected: 500, actual: 480, frequency: 'monthly', actualSource: 'transactions', actualTxCount: 8 };
+  const revertedDerived = L.applyBudgetEdit(derived, { name: 'Groceries', type: 'expense', frequency: 'monthly', expected: 500, actualProvided: false, actualMonthly: null });
+  assert.equal(revertedDerived.actual, 480); // stays ledger-derived, not reset to expected
+  assert.equal(revertedDerived.actualSource, 'transactions');
+});
