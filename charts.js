@@ -6,6 +6,8 @@
  * <script> tags share one global scope, so load order relative to app.js does not
  * matter as long as this file loads after Chart.js and before DOMContentLoaded fires.
  */
+/* exported renderDashboardCharts, renderScenarioCharts */
+// Both are called from app.js (tab switches, renderAll(), scenario control wiring).
 
 // Shared styling so every chart stays visually consistent from one place.
 const CHART_THEME = {

@@ -147,7 +147,7 @@
     let m;
 
     // ISO / YYYY-MM-DD / YYYY/MM/DD, optional time
-    if ((m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[T\s].*)?$/))) {
+    if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/))) {
       return validYMD(+m[1], +m[2], +m[3]);
     }
     // OFX compact: 20260901 or 20260901120000.000[-5:EST]
@@ -155,7 +155,7 @@
       return validYMD(+m[1], +m[2], +m[3]);
     }
     // Numeric with separators: M/D/Y or D/M/Y
-    if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})(?:[T\s].*)?$/))) {
+    if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[T\s].*)?$/))) {
       const a = +m[1], b = +m[2], y = expandYear(m[3]);
       let mo = a, d = b;
       if (opts.dayFirst || a > 12) { mo = b; d = a; }

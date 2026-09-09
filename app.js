@@ -4,6 +4,8 @@
  * Depends on parse.js (SpendPlanParse) and ledger.js (SpendPlanLedger), which
  * hold the DOM-free parsing and transaction logic and are unit-tested under tests/.
  */
+/* exported runProjection, applyScenarioPreset */
+// runProjection is consumed by charts.js; applyScenarioPreset by inline onclick= in index.html.
 
 const Parse = window.SpendPlanParse;
 const Ledger = window.SpendPlanLedger;
@@ -1245,7 +1247,7 @@ function initDataExportImport() {
           saveToLocalStorage();
           renderAll();
           notify(`Backup restored: ${state.budget.length} budget lines, ${state.transactions.length} transactions.`, 'success');
-        } catch (err) {
+        } catch {
           notify('That file is not a valid SpendPlan JSON backup.', 'error');
         }
       };
