@@ -163,19 +163,18 @@ function renderAssetDonut() {
 
   if (state.assets.length === 0) return;
 
-  // Group by category
-  const catMap = {};
-  state.assets.forEach(a => {
-    catMap[a.category] = (catMap[a.category] || 0) + Number(a.value);
-  });
+  // One slice per asset (not grouped by category) so multiple assets of the
+  // same category — e.g. two Real Estate properties — each show up distinctly
+  // instead of being summed into a single category-wide wedge.
+  const assets = state.assets;
 
   chartAssetDonut = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: Object.keys(catMap),
+      labels: assets.map(a => String(a.name).split(' ').slice(0, 2).join(' ')),
       datasets: [{
-        data: Object.values(catMap).map(v => Math.round(v)),
-        backgroundColor: DONUT_PALETTE.slice(0, Object.keys(catMap).length),
+        data: assets.map(a => Math.round(Number(a.value))),
+        backgroundColor: assets.map((_, i) => DONUT_PALETTE[i % DONUT_PALETTE.length]),
         borderColor: CHART_THEME.donutBorder,
         borderWidth: 2,
         hoverOffset: 8
@@ -191,7 +190,7 @@ function renderAssetDonut() {
         },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.label}: ${formatCurrency(ctx.parsed)}`
+            label: (ctx) => ` ${assets[ctx.dataIndex].name} (${assets[ctx.dataIndex].category}): ${formatCurrency(ctx.parsed)}`
           }
         }
       }
